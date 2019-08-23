@@ -28,6 +28,9 @@ public class PythonGenerator extends Generator {
     public PythonGenerator(HashMap pClassDescriptions, Properties pythonProperties) {
         super(pClassDescriptions, pythonProperties);
 
+        //Generate the code to a valid python file
+        pythonProperties.setProperty("filename","dis.py");
+
         marshalTypes.setProperty("unsigned short", "unsigned_short");
         marshalTypes.setProperty("unsigned byte", "unsigned_byte");
         marshalTypes.setProperty("unsigned int", "unsigned_int");
@@ -76,8 +79,8 @@ public class PythonGenerator extends Generator {
             this.writeLicense(pw);
             pw.println();
 
-            pw.println("import DataInputStream");
-            pw.println("import DataOutputStream");
+            pw.println("import dis_io.DataInputStream");
+            pw.println("import dis_io.DataOutputStream");
             pw.println();
 
             System.out.println("number of classes: " + sortedClasses.size());
@@ -107,7 +110,7 @@ public class PythonGenerator extends Generator {
             parentClassName = "object";
         }
 
-        pw.println("class " + aClass.getName() + "( " + parentClassName + " ):");
+        pw.println("class " + aClass.getName() + "(" + parentClassName + "):");
         this.writeClassComments(pw, aClass);
 
         pw.println(INDENT + "def __init__(self):");
@@ -143,7 +146,7 @@ public class PythonGenerator extends Generator {
             if (anAttribute.getAttributeKind() == ClassAttribute.ClassAttributeType.CLASSREF) {
                 String attributeType = anAttribute.getType();
 
-                pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = " + attributeType + "();");
+                pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = " + attributeType + "()");
                 if (anAttribute.getComment() != null) {
                     pw.println(INDENT + INDENT + "\"\"\" " + anAttribute.getComment() + "\"\"\"");
                 }
@@ -156,7 +159,7 @@ public class PythonGenerator extends Generator {
                 String listLengthString = (new Integer(listLength)).toString();
 
                 if (anAttribute.getUnderlyingTypeIsPrimitive() == true) {
-                    pw.print(INDENT + INDENT + "self." + anAttribute.getName() + " =  "
+                    pw.print(INDENT + INDENT + "self." + anAttribute.getName() + " = "
                             + "[");
                     for (int arrayLength = 0; arrayLength < anAttribute.getListLength(); arrayLength++) {
                         pw.print(" 0");
@@ -166,7 +169,7 @@ public class PythonGenerator extends Generator {
                     }
                     pw.println("]");
                 } else {
-                    pw.print(INDENT + INDENT + "self." + anAttribute.getName() + " =  "
+                    pw.print(INDENT + INDENT + "self." + anAttribute.getName() + " = "
                             + "[");
                     for (int arrayLength = 0; arrayLength < anAttribute.getListLength(); arrayLength++) {
                         pw.print(" " + attributeType + "()");
@@ -239,12 +242,12 @@ public class PythonGenerator extends Generator {
     public void writeMarshal(PrintWriter pw, GeneratedClass aClass) {
         pw.println();
         pw.println(INDENT + "def serialize(self, outputStream):");
-        pw.println(INDENT + INDENT + "\"\"\"serialize the class \"\"\"");
+        pw.println(INDENT + INDENT + "\"\"\"serialize the class\"\"\"");
 
         // If this is not a top-level class, call the superclass
         String parentClassName = aClass.getParentClass();
         if (!parentClassName.equalsIgnoreCase("root")) {
-            pw.println(INDENT + INDENT + "super( " + aClass.getName() + ", self ).serialize(outputStream)");
+            pw.println(INDENT + INDENT + "super(" + aClass.getName() + ", self).serialize(outputStream)");
         }
 
         List attributes = aClass.getClassAttributes();
@@ -265,9 +268,9 @@ public class PythonGenerator extends Generator {
                     // the list length.
                     if (anAttribute.getIsDynamicListLengthField() == true) {
                         ClassAttribute listAttribute = anAttribute.getDynamicListClassAttribute();
-                        pw.println(INDENT + INDENT + "outputStream.write_" + marshalType + "( len(self." + listAttribute.getName() + "));");
+                        pw.println(INDENT + INDENT + "outputStream.write_" + marshalType + "(len(self." + listAttribute.getName() + "))");
                     } else {
-                        pw.println(INDENT + INDENT + "outputStream.write_" + marshalType + "(self." + anAttribute.getName() + ");");
+                        pw.println(INDENT + INDENT + "outputStream.write_" + marshalType + "(self." + anAttribute.getName() + ")");
                     }
                     pw.flush();
                     break;
@@ -284,9 +287,9 @@ public class PythonGenerator extends Generator {
                     if (anAttribute.getUnderlyingTypeIsPrimitive() == true) {
                         marshalType = unmarshalTypes.getProperty(anAttribute.getType());
 
-                        pw.println(INDENT + INDENT + INDENT + "outputStream.write_" + marshalType + "( self." + anAttribute.getName() + "[ idx ] );");
+                        pw.println(INDENT + INDENT + INDENT + "outputStream.write_" + marshalType + "(self." + anAttribute.getName() + "[idx])");
                     } else if (anAttribute.listIsClass() == true) {
-                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + "[ idx ].serialize(outputStream);");
+                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + "[idx].serialize(outputStream)");
                     }
 
                     pw.println();
@@ -344,7 +347,7 @@ public class PythonGenerator extends Generator {
             switch (anAttribute.getAttributeKind()) {
                 case PRIMITIVE:
                     String marshalType = marshalTypes.getProperty(anAttribute.getType());
-                    pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = inputStream.read_" + marshalType + "();");
+                    pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = inputStream.read_" + marshalType + "()");
                     break;
 
                 case CLASSREF:
@@ -354,14 +357,14 @@ public class PythonGenerator extends Generator {
                 case FIXED_LIST:
                     // Write out the method call to parse a fixed length list, aka an array.
 
-                    pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = [0]*" + anAttribute.getListLength());
+                    pw.println(INDENT + INDENT + "self." + anAttribute.getName() + " = [0] * " + anAttribute.getListLength());
 
                     pw.println(INDENT + INDENT + "for idx in range(0, " + anAttribute.getListLength() + "):");
 
                     if (anAttribute.getUnderlyingTypeIsPrimitive() == true) {
                         marshalType = unmarshalTypes.getProperty(anAttribute.getType());
                         pw.println(INDENT + INDENT + INDENT + "val = inputStream.read_" + marshalType);
-                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + "[  idx  ] = val");
+                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + "[idx] = val");
                         //pw.println(INDENT + INDENT + INDENT +"inputStream.read_" + marshalType + "( self." + anAttribute.getName() + "[ idx ] );");
                     }
                     //else if(anAttribute.listIsClass() == true) 
@@ -383,12 +386,12 @@ public class PythonGenerator extends Generator {
 
                     if (marshalType == null) // It's a class
                     {
-                        pw.println(INDENT + INDENT + INDENT + "element = " + anAttribute.dynamicListClassAttribute + "()");
+                        pw.println(INDENT + INDENT + INDENT + "element = " + anAttribute.getType() + "()");
                         pw.println(INDENT + INDENT + INDENT + "element.parse(inputStream)");
                         pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".append(element)");
                     } else // It's a primitive
                     {
-                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".add( inputStream.read_" + marshalType + "(  )");
+                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".add(inputStream.read_" + marshalType + "())");
                     }
                     pw.println();
 
