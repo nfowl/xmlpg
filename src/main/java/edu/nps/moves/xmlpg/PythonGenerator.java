@@ -376,7 +376,7 @@ public class PythonGenerator extends Generator {
                     break;
 
                 case VARIABLE_LIST:
-                    pw.println(INDENT + INDENT + "for idx in range(0, self." + anAttribute.getCountFieldName() + "):");
+                    pw.println(INDENT + INDENT + "for _ in range(self." + anAttribute.getCountFieldName() + "):");
 
                     // This is some sleaze. We're an array, but an array of what? We could be either a
                     // primitive or a class. We need to figure out which. This is done via the expedient
@@ -391,7 +391,7 @@ public class PythonGenerator extends Generator {
                         pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".append(element)");
                     } else // It's a primitive
                     {
-                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".add(inputStream.read_" + marshalType + "())");
+                        pw.println(INDENT + INDENT + INDENT + "self." + anAttribute.getName() + ".append(inputStream.read_" + marshalType + "())");
                     }
                     pw.println();
 
@@ -449,7 +449,6 @@ public class PythonGenerator extends Generator {
                         if (bitfield.comment != null) {
                             pw.println(INDENT + INDENT + "\"\"\"" + bitfield.comment + " \"\"\"");
                         }
-                        pw.println(INDENT + INDENT + "aVal = 0");
                         pw.println(INDENT + INDENT + "self." + bitfield.parentAttribute.getName() + " &= ~" + bitfield.mask);
                         pw.println(INDENT + INDENT + "val = val << " + shiftBits);
                         pw.println(INDENT + INDENT + "self." + bitfield.parentAttribute.getName() + " = self." + bitfield.parentAttribute.getName() + " | val");
